@@ -10,3 +10,6 @@ migrate:
 
 generator:
 	docker-compose run --rm generator
+
+run:
+	docker-compose --profile manual up generator

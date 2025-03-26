@@ -1,22 +1,64 @@
 package main
 
 import (
+	"context"
 	"log"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
-	"github.com/Bitstarz-eng/event-processing-challenge/internal/generator"
-	"golang.org/x/net/context"
+	"github.com/Bitstarz-eng/event-processing-challenge/internal/listener"
+	"github.com/Bitstarz-eng/event-processing-challenge/internal/publisher"
+	rds "github.com/Bitstarz-eng/event-processing-challenge/internal/redis"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
+func init() {
+	// Load .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+}
+
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	var wg sync.WaitGroup
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	eventCh := generator.Generate(ctx)
+	// Connect to Redis and start publishing events
+	publisher := publisher.NewPublisher()
+	wg.Add(1)
+	go publisher.StartPublishing(ctx, &wg)
 
-	for event := range eventCh {
-		log.Printf("%#v\n", event)
+	// Listen localhost/materialized endpoint for statistics
+	wg.Add(1)
+	materialized := listener.NewMaterializedListener(publisher)
+	go materialized.ListenAndServe(&wg)
+
+	// Listen for OS signals (e.g., SIGTERM, SIGINT)
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+
+	select {
+	case <-ctx.Done():
+		log.Println("Stop publishing, Context timeout")
+		for _, subs := range publisher.Subscribers {
+			subs.ShowStat()
+		}
+	case <-time.After(time.Second * 10):
+		log.Println("Processing completed")
+	case sig := <-sigChan:
+		log.Printf("Received SIGTERM/SIGINT signal: %v\n", sig)
+		// Cancel the context to stop the publisher
+		cancel()
 	}
 
-	log.Println("finished")
+	// Wait for all Go routines to finish
+	wg.Wait()
+	rds.Close()
 }

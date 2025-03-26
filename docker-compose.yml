@@ -1,10 +1,13 @@
-version: "3.8"
+# the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion se
+# version: "3.8"
 
 services:
   generator:
-    image: golang:1.17-alpine
+    image: golang:1.24
     working_dir: /app
     command: ["go", "run", "internal/cmd/generator/main.go"]
+    ports:
+      - "8080:8080"
     volumes:
       - ".:/app"
     profiles:
@@ -15,5 +18,20 @@ services:
     environment:
       - POSTGRES_USER=casino
       - POSTGRES_PASSWORD=casino
+      - POSTGRES_DB=casino
+    ports:
+      - "5432:5432"
     volumes:
       - "./db:/db"
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    # volumes:
+    #   - "redis_data:/data" 
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

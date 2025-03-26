@@ -1,6 +1,10 @@
 package casino
 
-import "time"
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
 
 type Player struct {
 	Email          string    `json:"email"`
@@ -9,4 +13,13 @@ type Player struct {
 
 func (p Player) IsZero() bool {
 	return p.Email == "" || p.LastSignedInAt.IsZero()
+}
+
+func (p Player) String() string {
+	jsonData, err := json.MarshalIndent(p, "", "  ")
+	if err != nil {
+		fmt.Println("Error marshaling Player to JSON:", err)
+	}
+
+	return string(jsonData)
 }

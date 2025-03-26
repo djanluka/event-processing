@@ -1,12 +1,23 @@
 package casino
 
-import "time"
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+const (
+	GAME_START = "game_start"
+	BET        = "bet"
+	DEPOSIT    = "deposit"
+	GAME_STOP  = "game_stop"
+)
 
 var EventTypes = []string{
-	"game_start",
-	"bet",
-	"deposit",
-	"game_stop",
+	GAME_START,
+	BET,
+	DEPOSIT,
+	GAME_STOP,
 }
 
 type Event struct {
@@ -34,4 +45,12 @@ type Event struct {
 	AmountEUR   int    `json:"amount_eur,omitempty"`
 	Player      Player `json:"player,omitempty"`
 	Description string `json:"description"`
+}
+
+func (e Event) String() string {
+	jsonData, err := json.MarshalIndent(e, "", "  ")
+	if err != nil {
+		fmt.Println("Error marshaling Event to JSON:", err)
+	}
+	return string(jsonData)
 }
