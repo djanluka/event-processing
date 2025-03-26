@@ -95,9 +95,12 @@ func (p *Publisher) processEvent(event *casino.Event) {
 	player, err := p.DB.GetPlayer(event.PlayerID)
 	if err != nil {
 		log.Printf("Failed to get player data for ID %d: %v", event.PlayerID, err)
-		return
+	} else {
+		event.Player = *player
 	}
-	event.Player = *player
+
+	// Set description
+	event.SetDescription()
 }
 
 func (p *Publisher) getExchangedValue(from, to string, amount int) float64 {
