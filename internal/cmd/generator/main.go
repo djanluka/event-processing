@@ -36,8 +36,8 @@ func main() {
 	go publisher.StartPublishing(ctx, &wg)
 
 	// Listen localhost/materialized endpoint for statistics
-	wg.Add(1)
 	materialized := listener.NewMaterializedListener(publisher)
+	wg.Add(1)
 	go materialized.ListenAndServe(&wg)
 
 	// Listen for OS signals (e.g., SIGTERM, SIGINT)

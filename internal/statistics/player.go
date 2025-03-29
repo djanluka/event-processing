@@ -14,6 +14,10 @@ type PlayerData struct {
 	WonCount      atomic.Int64 `json:"won_count"`
 }
 
+func NewPlayerData() *PlayerData {
+	return &PlayerData{}
+}
+
 type PlayerStats struct {
 	TopPlayerBet     *StatisticCount `json:"top_player_bet"`
 	TopPlayerDeposit *StatisticCount `json:"top_player_deposit"`
@@ -26,14 +30,11 @@ var playerStats PlayerStats = PlayerStats{
 	TopPlayerWin:     NewStatisticCount(),
 }
 
-func NewPlayerData() *PlayerData {
-	return &PlayerData{}
-}
-
 func (pd *PlayerData) CalculateBetValues(id, amount int) {
 	pd.BetCount.Add(1)
 	pd.BetAmount.Add(int64(amount))
 
+	// Player statistic update
 	if pd.BetCount.Load() > int64(playerStats.TopPlayerBet.Count) {
 		playerStats.TopPlayerBet.SetValues(id, int(pd.BetCount.Load()))
 	}
@@ -43,6 +44,7 @@ func (pd *PlayerData) CalculateDepositValues(id, amount int) {
 	pd.DepositCount.Add(1)
 	pd.DepositAmount.Add(int64(amount))
 
+	// Player statistic update
 	if pd.DepositCount.Load() > int64(playerStats.TopPlayerDeposit.Count) {
 		playerStats.TopPlayerDeposit.SetValues(id, int(pd.DepositCount.Load()))
 	}
@@ -51,6 +53,7 @@ func (pd *PlayerData) CalculateDepositValues(id, amount int) {
 func (pd *PlayerData) CalculateWonValues(id int) {
 	pd.WonCount.Add(1)
 
+	// Player statistic update
 	if pd.WonCount.Load() > int64(playerStats.TopPlayerWin.Count) {
 		playerStats.TopPlayerWin.SetValues(id, int(pd.WonCount.Load()))
 	}

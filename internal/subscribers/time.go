@@ -84,7 +84,6 @@ func (ts *TimeSubscriber) GetStats() interface{} {
 }
 
 func (ts *TimeSubscriber) ShowStat() {
-
 	tds := statistics.CalculateTimeStats(ts.RedisClient)
 	ts.Statistics = tds
 

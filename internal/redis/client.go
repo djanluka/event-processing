@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"sync"
 
@@ -14,6 +13,7 @@ var (
 	once        sync.Once
 )
 
+// GetRedisClient returns singleton redis connection
 func GetRedisClient() *redis.Client {
 	once.Do(func() {
 		redisClient = redis.NewClient(&redis.Options{
@@ -25,13 +25,14 @@ func GetRedisClient() *redis.Client {
 		// Ping the Redis server to check if the connection is successful
 		_, err := redisClient.Ping(context.Background()).Result()
 		if err != nil {
-			panic(fmt.Sprintf("Failed to connect to Redis: %v", err))
+			log.Fatalf("Failed to connect to Redis: %v", err)
 		}
 	})
 
 	return redisClient
 }
 
+// Close the redis connection
 func Close() {
 	if err := redisClient.Close(); err != nil {
 		log.Printf("Error closing Redis connection: %v", err)

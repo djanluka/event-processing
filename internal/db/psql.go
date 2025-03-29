@@ -56,6 +56,7 @@ func GetDB() *DB {
 	return instance
 }
 
+// GetPlayer returns a player by player id
 func (db *DB) GetPlayer(id int) (*casino.Player, error) {
 	var email string
 	var lastSignedInAt time.Time
@@ -68,7 +69,7 @@ func (db *DB) GetPlayer(id int) (*casino.Player, error) {
 	return player, err
 }
 
-// Close releases database resources.
+// Close the database connection
 func (db *DB) Close() error {
 	if err := db.getPlayerStmt.Close(); err != nil {
 		return err
