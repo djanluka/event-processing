@@ -83,6 +83,10 @@ func (e *Event) getGameDesc() string {
 func (e *Event) getCurrDesc() string {
 	amount := SmallestUnit[e.Currency] * float64(e.Amount)
 	amountEUR := SmallestUnit["EUR"] * float64(e.AmountEUR)
+
+	if e.Currency == "BTC" {
+		return fmt.Sprintf("%.8f %s (%.2f EUR)", amount, e.Currency, amountEUR)
+	}
 	return fmt.Sprintf("%.2f %s (%.2f EUR)", amount, e.Currency, amountEUR)
 }
 func (e *Event) getTimeDesc() string {
