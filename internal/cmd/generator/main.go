@@ -27,7 +27,7 @@ func init() {
 func main() {
 	var wg sync.WaitGroup
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	// Connect to Redis and start publishing events
@@ -47,9 +47,7 @@ func main() {
 	select {
 	case <-ctx.Done():
 		log.Println("Stop publishing, Context timeout")
-		for _, subs := range publisher.Subscribers {
-			subs.ShowStat()
-		}
+		publisher.ShowStats()
 	case <-time.After(time.Second * 10):
 		log.Println("Processing completed")
 	case sig := <-sigChan:

@@ -7,7 +7,8 @@ import (
 )
 
 type Subscriber interface {
-	Subscribe(context.Context, string)
+	Subscribe(ctx context.Context, channel string, stopSignal string)
+	Unsubscribe(ctx context.Context, channel string)
 	HandleEvent(*casino.Event)
 	GetStats() interface{}
 	ShowStat() // Test purpose

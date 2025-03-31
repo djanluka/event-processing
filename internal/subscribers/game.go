@@ -14,6 +14,7 @@ import (
 
 type GameSubscriber struct {
 	RedisClient *redis.Client
+	PubSub      *redis.PubSub
 	Statistics  map[int]*statistics.GameData
 }
 
@@ -24,20 +25,26 @@ func NewGameSubscriber() Subscriber {
 	}
 }
 
-func (gs *GameSubscriber) Subscribe(ctx context.Context, event string) {
+func (gs *GameSubscriber) Subscribe(ctx context.Context, channel, stopSignal string) {
 
-	fmt.Printf("Game Subscriber subscribed to %s\n", event)
-	pubsub := gs.RedisClient.Subscribe(ctx, event)
-	defer pubsub.Close()
+	log.Printf("Game Subscriber subscribed to %s\n", channel)
+	gs.PubSub = gs.RedisClient.Subscribe(ctx, channel)
+	defer gs.PubSub.Close()
 
-	ch := pubsub.Channel()
+	ch := gs.PubSub.Channel()
 
 	for {
 		select {
 		case msg, ok := <-ch:
 			if !ok {
 				// Channel is closed, exit the loop
-				fmt.Println("Pub/Sub channel closed")
+				log.Println("Game: Pub/Sub channel closed")
+				return
+			}
+
+			// Stop reading the channel
+			if msg.Payload == stopSignal {
+				gs.Unsubscribe(ctx, channel)
 				return
 			}
 
@@ -45,7 +52,7 @@ func (gs *GameSubscriber) Subscribe(ctx context.Context, event string) {
 			var event casino.Event
 			err := json.Unmarshal([]byte(msg.Payload), &event)
 			if err != nil {
-				log.Printf("Failed to unmarshal event: %v", err)
+				log.Printf("Game: Failed to unmarshal event: %v", err)
 				continue
 			}
 			// Handle the event
@@ -53,10 +60,18 @@ func (gs *GameSubscriber) Subscribe(ctx context.Context, event string) {
 
 		case <-ctx.Done():
 			// Context is canceled, exit the loop
-			log.Println("Game unsubscribing, Context timeout")
+			log.Println("Game: Context timeout")
 			return
 		}
 	}
+}
+
+func (gs *GameSubscriber) Unsubscribe(ctx context.Context, event string) {
+	err := gs.PubSub.Unsubscribe(ctx, event)
+	if err != nil {
+		log.Printf("Game: Unsubscribe error: %v", err)
+	}
+	log.Println("Game: Unsubscribed")
 }
 
 func (gs *GameSubscriber) HandleEvent(event *casino.Event) {

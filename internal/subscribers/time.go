@@ -14,6 +14,7 @@ import (
 
 type TimeSubscriber struct {
 	RedisClient *redis.Client
+	PubSub      *redis.PubSub
 	Statistics  *statistics.TimeStats
 }
 
@@ -24,22 +25,28 @@ func NewTimeSubscriber() Subscriber {
 	}
 }
 
-func (ts *TimeSubscriber) Subscribe(ctx context.Context, event string) {
+func (ts *TimeSubscriber) Subscribe(ctx context.Context, channel, stopSignal string) {
 
-	fmt.Printf("Time Subscriber subscribed to %s\n", event)
-	pubsub := ts.RedisClient.Subscribe(ctx, event)
-	defer pubsub.Close()
+	log.Printf("Time Subscriber subscribed to %s\n", channel)
+	ts.PubSub = ts.RedisClient.Subscribe(ctx, channel)
+	defer ts.PubSub.Close()
 
 	ts.ResetRedisKeys(ctx)
 
-	ch := pubsub.Channel()
+	ch := ts.PubSub.Channel()
 
 	for {
 		select {
 		case msg, ok := <-ch:
 			if !ok {
 				// Channel is closed, exit the loop
-				fmt.Println("Pub/Sub channel closed")
+				log.Println("Time: Pub/Sub channel closed")
+				return
+			}
+
+			// Stop reading the channel
+			if msg.Payload == stopSignal {
+				ts.Unsubscribe(ctx, channel)
 				return
 			}
 
@@ -47,7 +54,7 @@ func (ts *TimeSubscriber) Subscribe(ctx context.Context, event string) {
 			var event casino.Event
 			err := json.Unmarshal([]byte(msg.Payload), &event)
 			if err != nil {
-				log.Printf("Failed to unmarshal event: %v", err)
+				log.Printf("Time: Failed to unmarshal event: %v", err)
 				continue
 			}
 			// Handle the event
@@ -55,10 +62,18 @@ func (ts *TimeSubscriber) Subscribe(ctx context.Context, event string) {
 
 		case <-ctx.Done():
 			// Context is canceled, exit the loop
-			log.Println("Time unsubscribing, Context timeout")
+			log.Println("Time: Context timeout")
 			return
 		}
 	}
+}
+
+func (ts *TimeSubscriber) Unsubscribe(ctx context.Context, event string) {
+	err := ts.PubSub.Unsubscribe(ctx, event)
+	if err != nil {
+		log.Printf("Time: Unsubscribe error: %v", err)
+	}
+	log.Println("Time: Unsubscribed")
 }
 
 func (ts *TimeSubscriber) HandleEvent(event *casino.Event) {

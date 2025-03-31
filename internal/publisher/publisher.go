@@ -3,7 +3,6 @@ package publisher
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -23,7 +22,8 @@ type Publisher struct {
 	DB          *db.DB
 }
 
-var CASINO_EVENT = "casino_event"
+const CASINO_EVENT_CHANNEL = "casino_event"
+const STOP_SIGNAL = "stop_casino_event"
 
 func NewPublisher() *Publisher {
 	redisClient := rds.GetRedisClient()
@@ -42,8 +42,9 @@ func (p *Publisher) StartPublishing(ctx context.Context, wg *sync.WaitGroup) {
 
 	eventCh := generator.Generate(ctx)
 
-	go p.startSubscription(ctx)
+	redisCtx := context.Background()
 
+	go p.startSubscription(redisCtx)
 	for event := range eventCh {
 		// Process event data
 		p.processEvent(&event)
@@ -55,12 +56,13 @@ func (p *Publisher) StartPublishing(ctx context.Context, wg *sync.WaitGroup) {
 		}
 
 		// Publish event
-		err = p.RedisClient.Publish(ctx, CASINO_EVENT, eventJSON).Err()
+		err = p.RedisClient.Publish(redisCtx, CASINO_EVENT_CHANNEL, eventJSON).Err()
 		if err != nil {
 			log.Printf("Failed to publish message: %v", err)
 		}
 		log.Println(event)
 	}
+	go p.stopSubscription(redisCtx)
 
 	log.Println("Publishing finished")
 }
@@ -71,7 +73,7 @@ func (p *Publisher) startSubscription(ctx context.Context) {
 		wg.Add(1)
 		go func(subscriber subs.Subscriber) {
 			defer wg.Done()
-			subscriber.Subscribe(ctx, CASINO_EVENT)
+			subscriber.Subscribe(ctx, CASINO_EVENT_CHANNEL, STOP_SIGNAL)
 		}(subscriber)
 	}
 
@@ -79,8 +81,17 @@ func (p *Publisher) startSubscription(ctx context.Context) {
 	log.Println("Succesfully waited for subscribers to finish the work")
 }
 
+// Publish stop signal to unsubscribe all subscribers
+func (p *Publisher) stopSubscription(ctx context.Context) {
+	err := p.RedisClient.Publish(ctx, CASINO_EVENT_CHANNEL, STOP_SIGNAL).Err()
+	if err != nil {
+		log.Printf("Failed to publish message: %v", err)
+	}
+}
+
+// Set common currency, find the player data and set description
 func (p *Publisher) processEvent(event *casino.Event) {
-	// Calculate AmountEUR for BEY and DEPOSIT events
+	// Calculate AmountEUR for BET and DEPOSIT events
 	if event.Type == casino.BET || event.Type == casino.DEPOSIT {
 		EUR := casino.Currencies[0]
 		if event.Currency == EUR {
@@ -109,7 +120,7 @@ func (p *Publisher) getExchangedValue(from, to string, amount int) float64 {
 	key := from + to
 	value, err := p.RedisClient.Get(p.RedisClient.Context(), key).Float64()
 	if err == nil {
-		fmt.Printf("Found in cache: %f\n", value)
+		// log.Printf("Found in cache: %f\n", value)
 		return value * float64(amount)
 	} else if err != redis.Nil {
 		log.Fatalf("Error checking Redis cache: %v", err)
@@ -127,7 +138,7 @@ func (p *Publisher) getExchangedValue(from, to string, amount int) float64 {
 	if err != nil {
 		log.Fatalf("Error setting Redis key: %v", err)
 	}
-	fmt.Printf("Stored in cache: %f\n", exchangeRateResponse.Info.Quote)
+	// log.Printf("Stored in cache: %f\n", exchangeRateResponse.Info.Quote)
 
 	return exchangeRateResponse.Result
 }
@@ -148,6 +159,9 @@ func (p *Publisher) GetStats() interface{} {
 	return response
 }
 
-func (p Publisher) String() string {
-	return "Publisher"
+// Show the stat in the console, testing purpose
+func (p *Publisher) ShowStats() {
+	for _, sub := range p.Subscribers {
+		sub.ShowStat()
+	}
 }
