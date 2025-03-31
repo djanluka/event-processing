@@ -27,7 +27,7 @@ func init() {
 func main() {
 	var wg sync.WaitGroup
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
 	// Connect to Redis and start publishing events

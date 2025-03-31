@@ -6,7 +6,6 @@ import (
 
 	"github.com/Bitstarz-eng/event-processing-challenge/internal/casino"
 	"github.com/Bitstarz-eng/event-processing-challenge/internal/statistics"
-	"github.com/go-redis/redis/v8"
 )
 
 type TimeSubscriber struct {
@@ -39,26 +38,18 @@ func (ts *TimeSubscriber) HandleEvent(event *casino.Event) {
 	timestamp := float64(event.CreatedAt.Unix())
 
 	// Increment total events
-	ts.BaseSubscriber.RedisClient.Incr(ctx, statistics.TOTAL_EVENTS)
-
+	ts.Statistics.IncrementTotalEvents(ctx)
 	// Add timestamp to sorted set
-	ts.BaseSubscriber.RedisClient.ZAdd(ctx, statistics.EVENTS_PER_MINUTE, &redis.Z{
-		Score:  timestamp,
-		Member: event.ID,
-	})
-
+	ts.Statistics.AddEventPerMinute(ctx, timestamp, event.ID)
 	// Add timestamp to list and trim to last 60 seconds
-	ts.BaseSubscriber.RedisClient.LPush(ctx, statistics.MOVING_AVG_PER_SECOND, timestamp)
-	ts.BaseSubscriber.RedisClient.LTrim(ctx, statistics.MOVING_AVG_PER_SECOND, 0, 59)
+	ts.Statistics.AddMovingAvgPerSecond(ctx, timestamp)
 }
 
 func (ts *TimeSubscriber) GetStats() interface{} {
-	return ts.Statistics.CalculateTimeStats()
+	return ts.Statistics
 }
 
 func (ts *TimeSubscriber) ShowStat() {
-	tds := ts.Statistics.CalculateTimeStats()
-	ts.Statistics = tds
-
-	fmt.Printf("Time Statistics:\n%v\n", tds)
+	ts.Statistics.CalculateTimeStats()
+	fmt.Printf("Time Statistics:\n%v\n", ts.Statistics)
 }
