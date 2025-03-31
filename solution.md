@@ -26,9 +26,10 @@ Each subscriber has its own statistics data structure for storing the values.
     - `deposit_count` - how many times the player deposit
     - `deposit_amount` - how much the player has deposited
     - `won_count` - how many time the player has won
+
     And calculate the `PlayerStats` for the `/materialized` API.
 
-- `TimeSubscriber` - stores general time statiscs for `/materialized` API.
+- `TimeSubscriber` - stores general time statistics for `/materialized` API.
     - `total_events`
     - `events_per_minute`
     - `moving_avg_per_second`
