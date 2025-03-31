@@ -2,76 +2,34 @@ package subscriber
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/Bitstarz-eng/event-processing-challenge/internal/casino"
-	rds "github.com/Bitstarz-eng/event-processing-challenge/internal/redis"
 	"github.com/Bitstarz-eng/event-processing-challenge/internal/statistics"
-	"github.com/go-redis/redis/v8"
 )
 
 type PlayerSubscriber struct {
-	RedisClient *redis.Client
-	PubSub      *redis.PubSub
-	Statistics  map[int]*statistics.PlayerData
+	BaseSubscriber *BaseSubscriber
+	Statistics     map[int]*statistics.PlayerData
 }
 
-func NewPlayerSubscriber() Subscriber {
-	return &PlayerSubscriber{
-		RedisClient: rds.GetRedisClient(),
-		Statistics:  make(map[int]*statistics.PlayerData),
+func NewPlayerSubscriber(name string) Subscriber {
+	baseSubscriber := NewBaseSubscriber(name)
+	ps := &PlayerSubscriber{
+		BaseSubscriber: baseSubscriber,
+		Statistics:     make(map[int]*statistics.PlayerData),
 	}
+
+	ps.BaseSubscriber.EventHandler = ps.HandleEvent
+	return ps
 }
 
 func (ps *PlayerSubscriber) Subscribe(ctx context.Context, channel, stopSignal string) {
-
-	log.Printf("Player Subscriber subscribed to %s\n", channel)
-	ps.PubSub = ps.RedisClient.Subscribe(ctx, channel)
-	defer ps.PubSub.Close()
-
-	ch := ps.PubSub.Channel()
-
-	for {
-		select {
-		case msg, ok := <-ch:
-			if !ok {
-				// Channel is closed, exit the loop
-				log.Println("Player: Pub/Sub channel closed")
-				return
-			}
-
-			// Stop reading the channel
-			if msg.Payload == stopSignal {
-				ps.Unsubscribe(ctx, channel)
-				return
-			}
-
-			// Deserialize the message into an Event struct
-			var event casino.Event
-			err := json.Unmarshal([]byte(msg.Payload), &event)
-			if err != nil {
-				log.Printf("Player: Failed to unmarshal event: %v", err)
-				continue
-			}
-			// Handle the event
-			ps.HandleEvent(&event)
-
-		case <-ctx.Done():
-			// Context is canceled, exit the loop
-			log.Println("Player: Context timeout")
-			return
-		}
-	}
+	ps.BaseSubscriber.Subscribe(ctx, channel, stopSignal)
 }
 
-func (ps *PlayerSubscriber) Unsubscribe(ctx context.Context, event string) {
-	err := ps.PubSub.Unsubscribe(ctx, event)
-	if err != nil {
-		log.Printf("Player: Unsubscribe error: %v", err)
-	}
-	log.Println("Player: Unsubscribed")
+func (ps *PlayerSubscriber) Unsubscribe(ctx context.Context, channel string) {
+	ps.BaseSubscriber.Unsubscribe(ctx, channel)
 }
 
 func (ps *PlayerSubscriber) HandleEvent(event *casino.Event) {

@@ -2,78 +2,36 @@ package subscriber
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/Bitstarz-eng/event-processing-challenge/internal/casino"
-	rds "github.com/Bitstarz-eng/event-processing-challenge/internal/redis"
 	"github.com/Bitstarz-eng/event-processing-challenge/internal/statistics"
 	"github.com/go-redis/redis/v8"
 )
 
 type TimeSubscriber struct {
-	RedisClient *redis.Client
-	PubSub      *redis.PubSub
-	Statistics  *statistics.TimeStats
+	BaseSubscriber *BaseSubscriber
+	Statistics     *statistics.TimeStats
 }
 
-func NewTimeSubscriber() Subscriber {
-	return &TimeSubscriber{
-		RedisClient: rds.GetRedisClient(),
-		Statistics:  statistics.NewTimeStats(),
+func NewTimeSubscriber(name string) Subscriber {
+	baseSubscriber := NewBaseSubscriber(name)
+	ts := &TimeSubscriber{
+		BaseSubscriber: baseSubscriber,
+		Statistics:     statistics.NewTimeStats(),
 	}
+
+	ts.BaseSubscriber.EventHandler = ts.HandleEvent
+	return ts
 }
 
 func (ts *TimeSubscriber) Subscribe(ctx context.Context, channel, stopSignal string) {
-
-	log.Printf("Time Subscriber subscribed to %s\n", channel)
-	ts.PubSub = ts.RedisClient.Subscribe(ctx, channel)
-	defer ts.PubSub.Close()
-
-	ts.ResetRedisKeys(ctx)
-
-	ch := ts.PubSub.Channel()
-
-	for {
-		select {
-		case msg, ok := <-ch:
-			if !ok {
-				// Channel is closed, exit the loop
-				log.Println("Time: Pub/Sub channel closed")
-				return
-			}
-
-			// Stop reading the channel
-			if msg.Payload == stopSignal {
-				ts.Unsubscribe(ctx, channel)
-				return
-			}
-
-			// Deserialize the message into an Event struct
-			var event casino.Event
-			err := json.Unmarshal([]byte(msg.Payload), &event)
-			if err != nil {
-				log.Printf("Time: Failed to unmarshal event: %v", err)
-				continue
-			}
-			// Handle the event
-			ts.HandleEvent(&event)
-
-		case <-ctx.Done():
-			// Context is canceled, exit the loop
-			log.Println("Time: Context timeout")
-			return
-		}
-	}
+	ts.Statistics.ResetRedisKeys(ctx)
+	ts.BaseSubscriber.Subscribe(ctx, channel, stopSignal)
 }
 
-func (ts *TimeSubscriber) Unsubscribe(ctx context.Context, event string) {
-	err := ts.PubSub.Unsubscribe(ctx, event)
-	if err != nil {
-		log.Printf("Time: Unsubscribe error: %v", err)
-	}
-	log.Println("Time: Unsubscribed")
+func (ts *TimeSubscriber) Unsubscribe(ctx context.Context, channel string) {
+	ts.BaseSubscriber.Unsubscribe(ctx, channel)
 }
 
 func (ts *TimeSubscriber) HandleEvent(event *casino.Event) {
@@ -81,47 +39,26 @@ func (ts *TimeSubscriber) HandleEvent(event *casino.Event) {
 	timestamp := float64(event.CreatedAt.Unix())
 
 	// Increment total events
-	ts.RedisClient.Incr(ctx, statistics.TOTAL_EVENTS)
+	ts.BaseSubscriber.RedisClient.Incr(ctx, statistics.TOTAL_EVENTS)
 
 	// Add timestamp to sorted set
-	ts.RedisClient.ZAdd(ctx, statistics.EVENTS_PER_MINUTE, &redis.Z{
+	ts.BaseSubscriber.RedisClient.ZAdd(ctx, statistics.EVENTS_PER_MINUTE, &redis.Z{
 		Score:  timestamp,
 		Member: event.ID,
 	})
 
 	// Add timestamp to list and trim to last 60 seconds
-	ts.RedisClient.LPush(ctx, statistics.MOVING_AVG_PER_SECOND, timestamp)
-	ts.RedisClient.LTrim(ctx, statistics.MOVING_AVG_PER_SECOND, 0, 59)
+	ts.BaseSubscriber.RedisClient.LPush(ctx, statistics.MOVING_AVG_PER_SECOND, timestamp)
+	ts.BaseSubscriber.RedisClient.LTrim(ctx, statistics.MOVING_AVG_PER_SECOND, 0, 59)
 }
 
 func (ts *TimeSubscriber) GetStats() interface{} {
-	return statistics.CalculateTimeStats(ts.RedisClient)
+	return ts.Statistics.CalculateTimeStats()
 }
 
 func (ts *TimeSubscriber) ShowStat() {
-	tds := statistics.CalculateTimeStats(ts.RedisClient)
+	tds := ts.Statistics.CalculateTimeStats()
 	ts.Statistics = tds
 
 	fmt.Printf("Time Statistics:\n%v\n", tds)
-}
-
-func (ts *TimeSubscriber) ResetRedisKeys(ctx context.Context) {
-
-	// Reset INCR TOTAL_EVENTS key to 0
-	if err := ts.RedisClient.Set(ctx, statistics.TOTAL_EVENTS, 0, 0).Err(); err != nil {
-		log.Fatalf("Error resetting total events: %v", err)
-	}
-
-	// Delete ZADD EVENTS_PER_MINUTE sorted set
-	if err := ts.RedisClient.Del(ctx, statistics.EVENTS_PER_MINUTE).Err(); err != nil {
-		log.Fatalf("Error deleting events per minute: %v", err)
-	}
-
-	// Delete LPUSH MOVING_AVG_PER_SECOND list
-	if err := ts.RedisClient.Del(ctx, statistics.MOVING_AVG_PER_SECOND).Err(); err != nil {
-		log.Fatalf("Error deleting event list: %v", err)
-	}
-
-	log.Println("Redis keys reset successfully")
-
 }
