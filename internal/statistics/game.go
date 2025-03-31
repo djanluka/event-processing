@@ -2,7 +2,7 @@ package statistics
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 
 	"github.com/Bitstarz-eng/event-processing-challenge/internal/casino"
 )
@@ -57,7 +57,7 @@ func GetMostBettedGame() StatisticAmount {
 func (gd *GameData) String() string {
 	gameData, err := json.MarshalIndent(gd, "", "  ")
 	if err != nil {
-		fmt.Println("Error marshaling GameData to JSON:", err)
+		log.Println("Error marshaling GameData to JSON:", err)
 	}
 	return string(gameData)
 }

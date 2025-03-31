@@ -2,7 +2,7 @@ package casino
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"time"
 )
 
@@ -18,7 +18,7 @@ func (p Player) IsZero() bool {
 func (p Player) String() string {
 	jsonData, err := json.MarshalIndent(p, "", "  ")
 	if err != nil {
-		fmt.Println("Error marshaling Player to JSON:", err)
+		log.Println("Error marshaling Player to JSON:", err)
 	}
 
 	return string(jsonData)

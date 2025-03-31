@@ -111,7 +111,7 @@ func (e *Event) getTimeDesc() string {
 func (e Event) String() string {
 	jsonData, err := json.MarshalIndent(e, "", "  ")
 	if err != nil {
-		fmt.Println("Error marshaling Event to JSON:", err)
+		log.Println("Error marshaling Event to JSON:", err)
 	}
 	return string(jsonData)
 }

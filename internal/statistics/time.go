@@ -61,7 +61,7 @@ func CalculateTimeStats(r *redis.Client) *TimeStats {
 func (td *TimeStats) String() string {
 	timeData, err := json.MarshalIndent(td, "", "  ")
 	if err != nil {
-		fmt.Println("Error marshaling TimeData to JSON:", err)
+		log.Println("Error marshaling TimeData to JSON:", err)
 	}
 	return string(timeData)
 }

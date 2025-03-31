@@ -2,7 +2,7 @@ package statistics
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"sync/atomic"
 )
 
@@ -73,7 +73,7 @@ func (pd *PlayerData) String() string {
 
 	playerData, err := json.MarshalIndent(response, "", "  ")
 	if err != nil {
-		fmt.Println("Error marshaling Event to JSON:", err)
+		log.Println("Error marshaling Event to JSON:", err)
 	}
 	return string(playerData)
 }
