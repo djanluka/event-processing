@@ -97,8 +97,8 @@ func (p *Publisher) processEvent(event *casino.Event) {
 		if event.Currency == EUR {
 			event.AmountEUR = event.Amount
 		} else {
-			event.AmountEUR = event.Amount
-			// event.AmountEUR = int(p.getExchangedValue(event.Currency, EUR, event.Amount))
+			// event.AmountEUR = event.Amount
+			event.AmountEUR = int(p.getExchangedValue(event.Currency, EUR, event.Amount))
 		}
 	}
 
