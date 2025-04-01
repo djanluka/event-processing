@@ -48,8 +48,6 @@ func main() {
 	case <-ctx.Done():
 		log.Println("Stop publishing, Context timeout")
 		publisher.ShowStats()
-	case <-time.After(time.Second * 10):
-		log.Println("Processing completed")
 	case sig := <-sigChan:
 		log.Printf("Received SIGTERM/SIGINT signal: %v\n", sig)
 		// Cancel the context to stop the publisher
