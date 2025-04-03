@@ -45,8 +45,8 @@ func (pd *PlayerData) CalculateDepositValues(id, amount int) {
 	pd.DepositAmount.Add(int64(amount))
 
 	// Player statistic update
-	if pd.DepositCount.Load() > int64(playerStats.TopPlayerDeposit.Count) {
-		playerStats.TopPlayerDeposit.SetValues(id, int(pd.DepositCount.Load()))
+	if pd.DepositAmount.Load() > int64(playerStats.TopPlayerDeposit.Count) {
+		playerStats.TopPlayerDeposit.SetValues(id, int(pd.DepositAmount.Load()))
 	}
 }
 
